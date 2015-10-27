@@ -9,8 +9,10 @@ import copy
 import six
 
 from scrapy.http import Request, HtmlResponse
-from scrapy.utils.spider import iterate_spider_output
+from scrapy.linkextractors import _re_type, _matches
 from scrapy.spiders import Spider
+from scrapy.utils.misc import arg_to_iter
+from scrapy.utils.spider import iterate_spider_output
 
 
 def identity(x):
@@ -19,8 +21,13 @@ def identity(x):
 
 class Rule(object):
 
-    def __init__(self, link_extractor, callback=None, cb_kwargs=None, follow=None, process_links=None, process_request=identity):
+    def __init__(self, link_extractor, allow_sources=(), deny_sources=(), callback=None,
+                 cb_kwargs=None, follow=None, process_links=None, process_request=identity):
         self.link_extractor = link_extractor
+        self.allow_res = [x if isinstance(x, _re_type) else re.compile(x)
+                          for x in arg_to_iter(allow_sources)]
+        self.deny_res = [x if isinstance(x, _re_type) else re.compile(x)
+                         for x in arg_to_iter(deny_sources)]
         self.callback = callback
         self.cb_kwargs = cb_kwargs or {}
         self.process_links = process_links
@@ -29,6 +36,13 @@ class Rule(object):
             self.follow = False if callback else True
         else:
             self.follow = follow
+    
+    def source_allowed(self, url):
+        if self.allow_res and not _matches(url, self.allow_res):
+            return False
+        if self.deny_res and _matches(url, self.deny_res):
+            return False
+        return True
 
 
 class CrawlSpider(Spider):
