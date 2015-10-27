@@ -67,6 +67,8 @@ class CrawlSpider(Spider):
             return
         seen = set()
         for n, rule in enumerate(self._rules):
+            if not rule.source_allowed(response.url):
+                continue
             links = [lnk for lnk in rule.link_extractor.extract_links(response)
                      if lnk not in seen]
             if links and rule.process_links:
