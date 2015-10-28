@@ -289,6 +289,41 @@ class CrawlSpiderTest(SpiderTest):
         self.assertTrue(hasattr(spider, '_follow_links'))
         self.assertFalse(spider._follow_links)
 
+    def test_allow_deny_sources_filter(self):
+        response_pass_url = HtmlResponse("http://example.org/pass_page/index.html",
+                                         body=self.test_body)
+        response_catch_url = HtmlResponse("http://example.org/catch_page/index.html",
+                                          body=self.test_body)
+
+        class _CrawlSpider(self.spider_class):
+            import re
+            name="test"
+            allowed_domains=['example.org']
+            rules = ()
+        
+        spider = _CrawlSpider()
+        # Source url matches allow_sources
+        spider._rules = (Rule(LinkExtractor(), allow_sources=r'example.org/pass_page'))
+        output = list(spider._requests_to_follow(response_pass_url))
+        self.assertEquals(len(output),3)
+        # Source url does not match allow_sources
+        spider._rules = (Rule(LinkExtractor(), allow_sources=r'example.org/pass_page'))
+        output = list(spider._requests_to_follow(response_catch_url))
+        self.assertEquals(len(output),0)
+        # Source url does not match deny_sources
+        spider._rules = (Rule(LinkExtractor(), deny_sources=r'example.org/catch_page'))
+        output = list(spider._requests_to_follow(response_pass_url))
+        self.assertEquals(len(output),3)
+        # Source url matches deny_sources
+        spider._rules = (Rule(LinkExtractor(), deny_sources=r'example.org/catch_page'))
+        output = list(spider._requests_to_follow(response_catch_url))
+        self.assertEquals(len(output),0)
+        # Source url matches allow_sources and does not match deny_sources
+        spider._rules = (Rule(LinkExtractor(), allow_sources=r'example.org/pass_page',
+                              deny_sources=r'example.org/catch_page'))
+        output = list(spider._requests_to_follow(response_pass_url))
+        self.assertEquals(len(output),3)
+
 
 class SitemapSpiderTest(SpiderTest):
 
